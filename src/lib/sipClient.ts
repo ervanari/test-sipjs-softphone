@@ -91,20 +91,27 @@ export function hangupCall() {
         if (currentSession.state === "Established") {
             currentSession.bye();
         } else if (currentSession.state === "Initial") {
-            currentSession.cancel();
+            // Check if the session is an Inviter before calling cancel()
+            if (currentSession instanceof Inviter) {
+                currentSession.cancel();
+            }
         }
     }
 }
 
 export function muteCall(mute: boolean) {
     if (currentSession && currentSession.sessionDescriptionHandler) {
-        const pc = currentSession.sessionDescriptionHandler.peerConnection;
-        pc.getSenders().forEach((sender) => {
-            if (sender.track && sender.track.kind === 'audio') {
-                sender.track.enabled = !mute;
-            }
-        });
-        return true;
+        // Use type assertion to access peerConnection
+        const sessionDescriptionHandler = currentSession.sessionDescriptionHandler as any;
+        if (sessionDescriptionHandler.peerConnection) {
+            const pc = sessionDescriptionHandler.peerConnection;
+            pc.getSenders().forEach((sender: RTCRtpSender) => {
+                if (sender.track && sender.track.kind === 'audio') {
+                    sender.track.enabled = !mute;
+                }
+            });
+            return true;
+        }
     }
     return false;
 }

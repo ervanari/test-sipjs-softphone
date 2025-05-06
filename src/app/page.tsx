@@ -58,14 +58,14 @@ export default function Home() {
 
       // Get local stream
       const localMediaStream = new MediaStream();
-      pc.getSenders().forEach((s) => {
+      pc.getSenders().forEach((s: RTCRtpSender) => {
         if (s.track) localMediaStream.addTrack(s.track);
       });
       setLocalStream(localMediaStream);
 
       // Get remote stream
       const remoteMediaStream = new MediaStream();
-      pc.getReceivers().forEach((r) => {
+      pc.getReceivers().forEach((r: RTCRtpReceiver) => {
         if (r.track) remoteMediaStream.addTrack(r.track);
       });
       setRemoteStream(remoteMediaStream);
@@ -84,14 +84,14 @@ export default function Home() {
 
         // Get local stream
         const localMediaStream = new MediaStream();
-        pc.getSenders().forEach((s: any) => {
+        pc.getSenders().forEach((s: RTCRtpSender) => {
           if (s.track) localMediaStream.addTrack(s.track);
         });
         setLocalStream(localMediaStream);
 
         // Get remote stream
         const remoteMediaStream = new MediaStream();
-        pc.getReceivers().forEach((r: any) => {
+        pc.getReceivers().forEach((r: RTCRtpReceiver) => {
           if (r.track) remoteMediaStream.addTrack(r.track);
         });
         setRemoteStream(remoteMediaStream);
