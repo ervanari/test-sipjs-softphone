@@ -29,9 +29,28 @@ export function initSIP(config: SIPConfig) {
         transportOptions: {
             server: wsServer,
         },
-        authorizationUsername: uri.split(":")[1].split("@")[0],
+        authorizationUsername: extractUsername(uri),
         authorizationPassword: password,
     };
+
+    // Helper function to extract username from URI
+    function extractUsername(uri: string): string {
+        // Handle URI with sip: prefix (sip:username@domain)
+        if (uri.includes(':')) {
+            const parts = uri.split(':');
+            if (parts.length > 1 && parts[1].includes('@')) {
+                return parts[1].split('@')[0];
+            }
+        }
+
+        // Handle URI without prefix (username@domain)
+        if (uri.includes('@')) {
+            return uri.split('@')[0];
+        }
+
+        // Fallback to the original URI if no username can be extracted
+        return uri;
+    }
 
     ua = new UserAgent(userAgentOptions);
 

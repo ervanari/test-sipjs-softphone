@@ -22,11 +22,13 @@ export default function SIPRegistration({ onRegistered, onIncomingCall, onMessag
     setError("");
 
     try {
-      // Extract domain from SIP URI
-      const domain = sipUri.split('@')[1];
+      // Extract domain from SIP URI, handling different formats
+      const atIndex = sipUri.lastIndexOf('@');
+      const domain = atIndex !== -1 ? sipUri.substring(atIndex + 1) : null;
+
       console.log("SIP URI:", sipUri);
       if (!domain) {
-        throw new Error("Invalid SIP URI format. Expected format: user@domain");
+        throw new Error("Invalid SIP URI format. Expected format: user@domain or sip:user@domain");
       }
 
       // Initialize SIP client
