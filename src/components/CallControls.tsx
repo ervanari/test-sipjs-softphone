@@ -22,7 +22,7 @@ interface CallControlsProps {
 // Define the type for the methods exposed via ref
 export interface CallControlsRef {
   handleVideoToggle: () => void;
-  handleCameraSwitch: () => Promise<void>;
+  handleCameraSwitch: () => Promise<boolean>;
 }
 
 const CallControls = forwardRef<CallControlsRef, CallControlsProps>(({ domain, inCall, currentSession }, ref) => {
@@ -175,7 +175,11 @@ const CallControls = forwardRef<CallControlsRef, CallControlsProps>(({ domain, i
       }
     } catch (error) {
       console.error('Error debugging audio:', error);
-      alert(`Error debugging audio: ${error.message}`);
+      if (error instanceof Error) {
+        alert(`Error debugging audio: ${error.message}`);
+      } else {
+        alert('An unknown error occurred while debugging audio.');
+      }
     }
   };
 
