@@ -84,7 +84,7 @@ export default function Home() {
 
       // Get local stream
       const localMediaStream = new MediaStream();
-      pc.getSenders().forEach((s) => {
+      pc.getSenders().forEach((s: RTCRtpSender) => {
         if (s.track) {
           console.log(`Adding local track from incoming call: ${s.track.kind}, enabled: ${s.track.enabled}, readyState: ${s.track.readyState}`);
           // Ensure track is enabled
@@ -99,7 +99,7 @@ export default function Home() {
       const remoteMediaStream = new MediaStream();
 
       // Add existing tracks
-      pc.getReceivers().forEach((r) => {
+      pc.getReceivers().forEach((r: RTCRtpReceiver) => {
         if (r.track) {
           console.log(`Adding existing track from incoming call: ${r.track.kind}, enabled: ${r.track.enabled}, readyState: ${r.track.readyState}`);
           // Ensure track is enabled
@@ -111,11 +111,11 @@ export default function Home() {
       console.log(`Initial remote stream created with ${remoteMediaStream.getTracks().length} tracks`);
 
       // Listen for track events to handle tracks that arrive later
-      pc.addEventListener('track', (event) => {
+      pc.addEventListener('track', (event: RTCTrackEvent) => {
         console.log('Track event received from incoming call:', event.track.kind, 'enabled:', event.track.enabled, 'readyState:', event.track.readyState);
 
         if (event.streams && event.streams.length > 0) {
-          event.streams[0].getTracks().forEach(track => {
+          event.streams[0].getTracks().forEach((track: MediaStreamTrack) => {
             console.log(`Adding new track from incoming call: ${track.kind}, enabled: ${track.enabled}, readyState: ${track.readyState}`);
             // Ensure track is enabled
             track.enabled = true;
