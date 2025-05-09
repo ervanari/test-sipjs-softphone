@@ -62,6 +62,22 @@ export default function Home() {
     setActiveTab('calls');
     setCallStatus('connecting');
 
+    // Add state change listener to handle call termination
+    if (incomingCall && incomingCall.stateChange) {
+      incomingCall.stateChange.addListener((state: string) => {
+        console.log(`Incoming call state changed to: ${state}`);
+        if (state === "Terminated") {
+          // Call ended
+          setInCall(false);
+          setLocalStream(null);
+          setRemoteStream(null);
+          setCallStatus(undefined);
+        }
+      });
+    } else {
+      console.error("Cannot add state change listener: incomingCall.stateChange is undefined");
+    }
+
     // Get media streams
     if (incomingCall && incomingCall.sessionDescriptionHandler && incomingCall.sessionDescriptionHandler.peerConnection) {
       const pc = incomingCall.sessionDescriptionHandler.peerConnection;
