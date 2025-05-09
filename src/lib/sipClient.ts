@@ -26,10 +26,10 @@ interface SIPConfig {
 export function initSIP(config: SIPConfig): Promise<void> {
     return new Promise((resolve, reject) => {
         const { uri, password, wsServer, onInvite, onMessage, onRegistrationFailed, iceServers } = config;
-        
+
         let isPromiseSettled = false;
         let registrationTimeout: NodeJS.Timeout | null = null;
-        
+
         const userAgentOptions: UserAgentOptions = {
             uri: UserAgent.makeURI(uri),
             transportOptions: {
@@ -49,7 +49,7 @@ export function initSIP(config: SIPConfig): Promise<void> {
                 }
             }
         };
-        
+
         function extractUsername(uri: string): string {
             // Handle URI with sip: prefix (sip:username@domain)
             if (uri.includes(':')) {
@@ -58,15 +58,15 @@ export function initSIP(config: SIPConfig): Promise<void> {
                     return parts[1].split('@')[0];
                 }
             }
-            
+
             // Handle URI without prefix (username@domain)
             if (uri.includes('@')) {
                 return uri.split('@')[0];
             }
-            
+
             return uri;
         }
-        
+
         const safeResolve = () => {
             if (!isPromiseSettled) {
                 isPromiseSettled = true;
@@ -78,7 +78,7 @@ export function initSIP(config: SIPConfig): Promise<void> {
                 resolve();
             }
         };
-        
+
         const safeReject = (error: Error) => {
             if (!isPromiseSettled) {
                 isPromiseSettled = true;
@@ -93,10 +93,10 @@ export function initSIP(config: SIPConfig): Promise<void> {
                 reject(error);
             }
         };
-        
+
         try {
             ua = new UserAgent(userAgentOptions);
-            
+
             ua.delegate = {
                 onInvite: (invitation) => {
                     currentSession = invitation;
@@ -112,10 +112,10 @@ export function initSIP(config: SIPConfig): Promise<void> {
                     }
                 }
             };
-            
+
             ua.start().then(() => {
                 registerer = new Registerer(ua);
-                
+
                 registerer.stateChange.addListener((state) => {
                     switch (state) {
                         case "Registered":
@@ -135,7 +135,7 @@ export function initSIP(config: SIPConfig): Promise<void> {
                             break;
                     }
                 });
-                
+
                 registrationTimeout = setTimeout(() => {
                     if (!isPromiseSettled) {
                         const error = new Error("Registration timed out after 10 seconds.");
@@ -143,7 +143,7 @@ export function initSIP(config: SIPConfig): Promise<void> {
                         safeReject(error);
                     }
                 }, 10000);
-                
+
                 registerer.register();
             }).catch((error) => {
                 console.error("❌ SIP connection failed:", error);
@@ -163,7 +163,7 @@ export async function makeCall(target: string, withVideo = true): Promise<Sessio
             audio: true,
             video: withVideo
         });
-        
+
         const audioTracks = stream.getAudioTracks();
         console.log(`🎤 Got ${audioTracks.length} audio tracks from getUserMedia`);
         audioTracks.forEach((track, index) => {
@@ -175,7 +175,7 @@ export async function makeCall(target: string, withVideo = true): Promise<Sessio
                 analyser.fftSize = 256;
                 source.connect(analyser);
                 const dataArray = new Uint8Array(analyser.frequencyBinCount);
-                
+
                 const checkAudioLevel = () => {
                     analyser.getByteFrequencyData(dataArray);
                     let sum = 0;
@@ -184,19 +184,19 @@ export async function makeCall(target: string, withVideo = true): Promise<Sessio
                     }
                     const average = sum / dataArray.length;
                     console.log(`🎤 Audio track ${index} level: ${average.toFixed(2)}`);
-                    
-                    if (window.audioLevelChecks < 5) {
-                        window.audioLevelChecks++;
+
+                    if ((window as any).audioLevelChecks < 5) {
+                        (window as any).audioLevelChecks++;
                         setTimeout(checkAudioLevel, 500);
                     }
                 };
-                
-                if (typeof window.audioLevelChecks === 'undefined') {
-                    window.audioLevelChecks = 0;
+
+                if (typeof (window as any).audioLevelChecks === 'undefined') {
+                    (window as any).audioLevelChecks = 0;
                 }
-                
+
                 checkAudioLevel();
-                
+
                 setTimeout(() => {
                     audioContext.close();
                 }, 3000);
@@ -204,7 +204,7 @@ export async function makeCall(target: string, withVideo = true): Promise<Sessio
                 console.error('Error checking audio levels:', e);
             }
         });
-        
+
         const inviter = new Inviter(ua, UserAgent.makeURI(target)!, {
             sessionDescriptionHandlerOptions: {
                 constraints: {
@@ -213,35 +213,35 @@ export async function makeCall(target: string, withVideo = true): Promise<Sessio
                 },
             },
         });
-        
+
         currentSession = inviter;
-        
+
         // Add handlers to intercept and log SDP
         inviter.stateChange.addListener((state) => {
             if (state === 'Establishing') {
                 console.log('Call is establishing, intercepting SDP...');
-                
+
                 // Access the session description handler once it's available
                 if (inviter.sessionDescriptionHandler) {
                     const sdh = inviter.sessionDescriptionHandler as any;
-                    
+
                     // Store the original send method to intercept it
                     const originalSend = sdh.send;
                     sdh.send = function(description: RTCSessionDescriptionInit) {
                         console.log('🔍 Sending SDP:', description.type);
-                        
+
                         // Parse and log the SDP to check for audio sendrecv
                         const sdpLines = description.sdp?.split('\n') || [];
                         let currentMedia = '';
                         let audioDirection = '';
-                        
+
                         sdpLines.forEach(line => {
                             // Track which media section we're in
                             if (line.startsWith('m=')) {
                                 currentMedia = line.split(' ')[0].substring(2);
                                 console.log(`🔍 SDP media section: ${line}`);
                             }
-                            
+
                             // Check for direction attributes in audio section
                             if (currentMedia === 'audio' &&
                                 (line.includes('a=sendrecv') ||
@@ -252,7 +252,7 @@ export async function makeCall(target: string, withVideo = true): Promise<Sessio
                                 console.log(`🔍 Audio direction: ${audioDirection}`);
                             }
                         });
-                        
+
                         if (currentMedia === '') {
                             console.error('❌ No media sections found in SDP!');
                         } else if (audioDirection === '') {
@@ -262,52 +262,52 @@ export async function makeCall(target: string, withVideo = true): Promise<Sessio
                         } else {
                             console.log('✅ Audio direction is correctly set to sendrecv');
                         }
-                        
+
                         // Call the original method
                         return originalSend.apply(this, [description]);
                     };
                 }
             }
         });
-        
+
         // Try to add tracks immediately if sessionDescriptionHandler is available
         const addTracksToConnection = (session: any, mediaStream: MediaStream) => {
             if (session.sessionDescriptionHandler) {
                 const sessionDescriptionHandler = session.sessionDescriptionHandler as any;
                 if (sessionDescriptionHandler.peerConnection) {
                     const pc = sessionDescriptionHandler.peerConnection;
-                    
+
                     console.log('🔍 Checking RTCPeerConnection for existing tracks...');
-                    
+
                     // Log the current state of the peer connection
                     console.log(`🔍 RTCPeerConnection state: ${pc.connectionState}`);
                     console.log(`🔍 ICE connection state: ${pc.iceConnectionState}`);
                     console.log(`🔍 Signaling state: ${pc.signalingState}`);
-                    
+
                     // Check if we already have senders with tracks
                     const existingSenders = pc.getSenders();
                     console.log(`🔍 Found ${existingSenders.length} existing senders in peer connection`);
-                    
+
                     // Log details of existing senders
-                    existingSenders.forEach((sender, index) => {
+                    existingSenders.forEach((sender: RTCRtpSender, index: number) => {
                         if (sender.track) {
                             console.log(`🔍 Existing sender ${index}: kind=${sender.track.kind}, enabled=${sender.track.enabled}, readyState=${sender.track.readyState}`);
                         } else {
                             console.log(`🔍 Existing sender ${index}: no track attached`);
                         }
                     });
-                    
-                    const hasAudioSender = existingSenders.some(sender =>
+
+                    const hasAudioSender = existingSenders.some((sender: RTCRtpSender) =>
                         sender.track && sender.track.kind === 'audio' && sender.track.enabled);
-                    
+
                     if (!hasAudioSender) {
                         console.log('🔊 No active audio senders found, adding tracks to connection');
-                        
+
                         // Log the tracks we're about to add
                         const audioTracks = mediaStream.getAudioTracks();
                         const videoTracks = mediaStream.getVideoTracks();
                         console.log(`🔊 Adding ${audioTracks.length} audio tracks and ${videoTracks.length} video tracks to peer connection`);
-                        
+
                         // Add tracks from the stream and store the senders
                         const addedSenders = [];
                         mediaStream.getTracks().forEach(track => {
@@ -315,23 +315,23 @@ export async function makeCall(target: string, withVideo = true): Promise<Sessio
                             const sender = pc.addTrack(track, mediaStream);
                             addedSenders.push(sender);
                         });
-                        
+
                         // Verify tracks were added by checking senders again
                         setTimeout(() => {
                             const updatedSenders = pc.getSenders();
                             console.log(`🔍 After adding tracks: ${updatedSenders.length} senders in peer connection`);
-                            
+
                             // Check if audio tracks were actually added
-                            const audioSenders = updatedSenders.filter(sender =>
+                            const audioSenders = updatedSenders.filter((sender: RTCRtpSender) =>
                                 sender.track && sender.track.kind === 'audio' && sender.track.enabled);
-                            
+
                             if (audioSenders.length > 0) {
                                 console.log(`✅ Successfully added ${audioSenders.length} audio tracks to peer connection`);
                             } else {
                                 console.error('❌ Failed to add audio tracks to peer connection!');
                             }
                         }, 100);
-                        
+
                         return true;
                     } else {
                         console.log('🔊 Active audio senders already exist');
@@ -345,7 +345,7 @@ export async function makeCall(target: string, withVideo = true): Promise<Sessio
             }
             return false;
         };
-        
+
         // Add state change listener to debug audio issues and add tracks when sessionDescriptionHandler is available
         inviter.stateChange.addListener((newState) => {
             // Try to add tracks when the session is initializing or early in the call setup
@@ -354,36 +354,36 @@ export async function makeCall(target: string, withVideo = true): Promise<Sessio
                 addTracksToConnection(inviter, stream);
             }
         });
-        
+
         // Add state change listener to debug audio issues
         inviter.stateChange.addListener((state) => {
             console.log(`Call state changed to: ${state}`);
-            
+
             // When call is established, check audio tracks and connection
             if (state === 'Established') {
                 console.log('Call established, checking audio tracks and connection...');
-                
+
                 if (inviter.sessionDescriptionHandler) {
                     const sessionDescriptionHandler = inviter.sessionDescriptionHandler as any;
                     if (sessionDescriptionHandler.peerConnection) {
                         const pc = sessionDescriptionHandler.peerConnection;
-                        
+
                         // Log RTCPeerConnection state
                         console.log(`RTCPeerConnection state: ${pc.connectionState}`);
                         console.log(`ICE connection state: ${pc.iceConnectionState}`);
                         console.log(`Signaling state: ${pc.signalingState}`);
-                        
+
                         // Check audio senders
                         const senders = pc.getSenders();
                         console.log(`Total RTP senders: ${senders.length}`);
-                        
+
                         // Check if we have any audio senders
-                        const audioSenders = senders.filter(sender => sender.track && sender.track.kind === 'audio');
-                        const hasEnabledAudioSender = audioSenders.some(sender => sender.track.enabled);
-                        
+                        const audioSenders = senders.filter((sender: RTCRtpSender) => sender.track && sender.track.kind === 'audio');
+                        const hasEnabledAudioSender = audioSenders.some((sender: RTCRtpSender) => sender.track && sender.track.enabled);
+
                         if (audioSenders.length === 0 || !hasEnabledAudioSender) {
                             console.log('❌ No enabled audio tracks found, attempting to add local tracks again...');
-                            
+
                             // Try to get media stream again if needed
                             navigator.mediaDevices.getUserMedia({ audio: true, video: withVideo })
                                 .then(newStream => {
@@ -395,14 +395,14 @@ export async function makeCall(target: string, withVideo = true): Promise<Sessio
                                 })
                                 .catch(err => console.error('Failed to get media on retry:', err));
                         }
-                        
-                        senders.forEach((sender, index) => {
+
+                        senders.forEach((sender: RTCRtpSender, index: number) => {
                             if (sender.track) {
                                 console.log(`Sender ${index} track kind: ${sender.track.kind}`);
                                 console.log(`Sender ${index} track enabled: ${sender.track.enabled}`);
                                 console.log(`Sender ${index} track readyState: ${sender.track.readyState}`);
                                 console.log(`Sender ${index} track muted: ${sender.track.muted}`);
-                                
+
                                 // If it's an audio track, make sure it's enabled
                                 if (sender.track.kind === 'audio' && !sender.track.enabled) {
                                     console.log('⚠️ Audio track was disabled, enabling it now');
@@ -411,36 +411,36 @@ export async function makeCall(target: string, withVideo = true): Promise<Sessio
                             } else {
                                 console.log(`Sender ${index} has no track`);
                             }
-                            
+
                             // Log sender parameters
                             const params = sender.getParameters();
                             console.log(`Sender ${index} parameters:`, params);
                         });
-                        
+
                         // Final check if there are any audio tracks
                         if (audioSenders.length === 0) {
                             console.error('❌ No audio tracks found in the RTCPeerConnection!');
                         } else {
                             // Set up audio level monitoring to verify audio transmission
                             console.log('🎤 Setting up audio transmission monitoring...');
-                            
+
                             try {
                                 // Create audio context for monitoring
                                 const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-                                
+
                                 // Get the audio track from the first audio sender
                                 const audioTrack = audioSenders[0].track;
                                 if (audioTrack) {
                                     // Create a media stream with just this audio track
                                     const monitorStream = new MediaStream([audioTrack]);
-                                    
+
                                     // Create source and analyzer
                                     const source = audioContext.createMediaStreamSource(monitorStream);
                                     const analyser = audioContext.createAnalyser();
                                     analyser.fftSize = 256;
                                     source.connect(analyser);
                                     const dataArray = new Uint8Array(analyser.frequencyBinCount);
-                                    
+
                                     // Monitor function to check audio levels during the call
                                     const monitorAudioLevels = () => {
                                         if (currentSession && currentSession.state === 'Established') {
@@ -450,17 +450,17 @@ export async function makeCall(target: string, withVideo = true): Promise<Sessio
                                                 sum += dataArray[i];
                                             }
                                             const average = sum / dataArray.length;
-                                            
+
                                             // Log audio level with timestamp
                                             const now = new Date();
                                             const timestamp = `${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`;
                                             console.log(`🎤 [${timestamp}] Outgoing audio level: ${average.toFixed(2)}`);
-                                            
+
                                             // Check if audio level indicates activity
                                             if (average > 5) {
                                                 console.log('✅ Audio activity detected - your microphone is working');
                                             }
-                                            
+
                                             // Continue monitoring
                                             setTimeout(monitorAudioLevels, 2000);
                                         } else {
@@ -469,10 +469,10 @@ export async function makeCall(target: string, withVideo = true): Promise<Sessio
                                             audioContext.close();
                                         }
                                     };
-                                    
+
                                     // Start monitoring
                                     monitorAudioLevels();
-                                    
+
                                     console.log('✅ Audio transmission monitoring started');
                                 } else {
                                     console.error('❌ Could not access audio track for monitoring');
@@ -489,17 +489,17 @@ export async function makeCall(target: string, withVideo = true): Promise<Sessio
                 }
             }
         });
-        
+
         // Invite the target
         await inviter.invite();
-        
+
         // Don't stop the stream - SIP.js needs it for the call
         // The stream will be managed by the WebRTC connection
-        
+
         return inviter;
     } catch (error) {
         console.error("Error making call:", error);
-        
+
         // If the error is related to media permissions, provide a more helpful message
         if (error instanceof DOMException &&
             (error.name === "NotAllowedError" || error.name === "PermissionDeniedError")) {
@@ -507,7 +507,7 @@ export async function makeCall(target: string, withVideo = true): Promise<Sessio
         } else if (error instanceof DOMException && error.name === "NotFoundError") {
             throw new Error("No microphone or camera found. Please check your device connections.");
         }
-        
+
         // Re-throw the original error
         throw error;
     }
@@ -521,36 +521,36 @@ export async function acceptCall(invitation: Invitation, withVideo = true): Prom
             audio: true,
             video: withVideo
         });
-        
+
         // Add state change listener to debug audio issues
         invitation.stateChange.addListener((state) => {
             console.log(`Incoming call state changed to: ${state}`);
-            
+
             // When call is established, check audio tracks and connection
             if (state === 'Established') {
                 console.log('Incoming call established, checking audio tracks and connection...');
-                
+
                 if (invitation.sessionDescriptionHandler) {
                     const sessionDescriptionHandler = invitation.sessionDescriptionHandler as any;
                     if (sessionDescriptionHandler.peerConnection) {
                         const pc = sessionDescriptionHandler.peerConnection;
-                        
+
                         // Log RTCPeerConnection state
                         console.log(`RTCPeerConnection state: ${pc.connectionState}`);
                         console.log(`ICE connection state: ${pc.iceConnectionState}`);
                         console.log(`Signaling state: ${pc.signalingState}`);
-                        
+
                         // Check audio senders
                         const senders = pc.getSenders();
                         console.log(`Total RTP senders: ${senders.length}`);
-                        
+
                         // Check if we have any audio senders
-                        const audioSenders = senders.filter(sender => sender.track && sender.track.kind === 'audio');
-                        const hasEnabledAudioSender = audioSenders.some(sender => sender.track.enabled);
-                        
+                        const audioSenders = senders.filter((sender: RTCRtpSender) => sender.track && sender.track.kind === 'audio');
+                        const hasEnabledAudioSender = audioSenders.some((sender: RTCRtpSender) => sender.track && sender.track.enabled);
+
                         if (audioSenders.length === 0 || !hasEnabledAudioSender) {
                             console.log('❌ No enabled audio tracks found for incoming call, attempting to add local tracks again...');
-                            
+
                             // Try to get media stream again if needed
                             navigator.mediaDevices.getUserMedia({ audio: true, video: withVideo })
                                 .then(newStream => {
@@ -562,14 +562,14 @@ export async function acceptCall(invitation: Invitation, withVideo = true): Prom
                                 })
                                 .catch(err => console.error('Failed to get media on retry for incoming call:', err));
                         }
-                        
-                        senders.forEach((sender, index) => {
+
+                        senders.forEach((sender: RTCRtpSender, index: number) => {
                             if (sender.track) {
                                 console.log(`Sender ${index} track kind: ${sender.track.kind}`);
                                 console.log(`Sender ${index} track enabled: ${sender.track.enabled}`);
                                 console.log(`Sender ${index} track readyState: ${sender.track.readyState}`);
                                 console.log(`Sender ${index} track muted: ${sender.track.muted}`);
-                                
+
                                 // If it's an audio track, make sure it's enabled
                                 if (sender.track.kind === 'audio' && !sender.track.enabled) {
                                     console.log('⚠️ Audio track was disabled, enabling it now');
@@ -578,12 +578,12 @@ export async function acceptCall(invitation: Invitation, withVideo = true): Prom
                             } else {
                                 console.log(`Sender ${index} has no track`);
                             }
-                            
+
                             // Log sender parameters
                             const params = sender.getParameters();
                             console.log(`Sender ${index} parameters:`, params);
                         });
-                        
+
                         // Final check if there are any audio tracks
                         if (audioSenders.length === 0) {
                             console.error('❌ No audio tracks found in the RTCPeerConnection for incoming call!');
@@ -596,7 +596,7 @@ export async function acceptCall(invitation: Invitation, withVideo = true): Prom
                 }
             }
         });
-        
+
         // Accept the invitation with the requested media constraints
         await invitation.accept({
             sessionDescriptionHandlerOptions: {
@@ -606,31 +606,31 @@ export async function acceptCall(invitation: Invitation, withVideo = true): Prom
                 },
             },
         });
-        
+
         // Store the current session
         currentSession = invitation;
-        
+
         // Try to add tracks immediately if sessionDescriptionHandler is available
         const addTracksToConnection = (session: any, mediaStream: MediaStream) => {
             if (session.sessionDescriptionHandler) {
                 const sessionDescriptionHandler = session.sessionDescriptionHandler as any;
                 if (sessionDescriptionHandler.peerConnection) {
                     const pc = sessionDescriptionHandler.peerConnection;
-                    
+
                     // Check if we already have senders with tracks
                     const existingSenders = pc.getSenders();
-                    const hasAudioSender = existingSenders.some(sender =>
+                    const hasAudioSender = existingSenders.some((sender: RTCRtpSender) =>
                         sender.track && sender.track.kind === 'audio' && sender.track.enabled);
-                    
+
                     if (!hasAudioSender) {
                         console.log('No active audio senders found, adding tracks to connection for incoming call');
-                        
+
                         // Add tracks from the stream
                         mediaStream.getTracks().forEach(track => {
                             console.log(`Adding ${track.kind} track to peer connection for incoming call`);
                             pc.addTrack(track, mediaStream);
                         });
-                        
+
                         return true;
                     } else {
                         console.log('Active audio senders already exist for incoming call');
@@ -644,7 +644,7 @@ export async function acceptCall(invitation: Invitation, withVideo = true): Prom
             }
             return false;
         };
-        
+
         // Add state change listener to add tracks when sessionDescriptionHandler is available
         invitation.stateChange.addListener((newState) => {
             // Try to add tracks when the session is establishing or early in the call setup
@@ -653,12 +653,12 @@ export async function acceptCall(invitation: Invitation, withVideo = true): Prom
                 addTracksToConnection(invitation, stream);
             }
         });
-        
+
         // Don't stop the stream - SIP.js needs it for the call
         // The stream will be managed by the WebRTC connection
     } catch (error) {
         console.error("Error accepting call:", error);
-        
+
         // If the error is related to media permissions, provide a more helpful message
         if (error instanceof DOMException &&
             (error.name === "NotAllowedError" || error.name === "PermissionDeniedError")) {
@@ -666,14 +666,14 @@ export async function acceptCall(invitation: Invitation, withVideo = true): Prom
         } else if (error instanceof DOMException && error.name === "NotFoundError") {
             throw new Error("No microphone or camera found. Please check your device connections.");
         }
-        
+
         // Reject the call if we couldn't accept it
         try {
             invitation.reject();
         } catch (rejectError) {
             console.error("Error rejecting call after failed accept:", rejectError);
         }
-        
+
         // Re-throw the original error
         throw error;
     }
@@ -683,7 +683,7 @@ export function hangupCall() {
     if (currentSession) {
         // Store a reference to the current session
         const session = currentSession;
-        
+
         if (session.state === "Established") {
             session.bye();
         } else if (session.state === "Initial") {
@@ -692,10 +692,10 @@ export function hangupCall() {
                 session.cancel();
             }
         }
-        
+
         // Clean up the session reference immediately to prevent further operations on it
-        currentSession = null;
-        
+        currentSession = null as unknown as Session;
+
         // Add a one-time listener to handle any final cleanup after termination
         const stateChangeListener = (state: string) => {
             if (state === "Terminated") {
@@ -704,14 +704,14 @@ export function hangupCall() {
                 session.stateChange.removeListener(stateChangeListener);
             }
         };
-        
+
         session.stateChange.addListener(stateChangeListener);
     }
 }
 
 export function muteCall(mute: boolean) {
     if (!currentSession) return false;
-    
+
     try {
         if (currentSession.sessionDescriptionHandler) {
             // Use type assertion to access peerConnection
@@ -740,7 +740,7 @@ export function sendMessage(target: string, message: string) {
 
 export function transferCall(target: string) {
     if (!currentSession) return false;
-    
+
     try {
         if (currentSession instanceof Inviter) {
             currentSession.refer(UserAgent.makeURI(target)!);
@@ -754,19 +754,19 @@ export function transferCall(target: string) {
 
 export function holdCall(hold: boolean) {
     if (!currentSession) return false;
-    
+
     try {
         if (currentSession.sessionDescriptionHandler) {
             isOnHold = hold;
-            const pc = currentSession.sessionDescriptionHandler.peerConnection;
-            
+            const pc = (currentSession.sessionDescriptionHandler as any).peerConnection;
+
             // Toggle all audio and video tracks
-            pc.getSenders().forEach((sender) => {
+            pc.getSenders().forEach((sender: RTCRtpSender) => {
                 if (sender.track) {
                     sender.track.enabled = !hold;
                 }
             });
-            
+
             return true;
         }
     } catch (error) {
@@ -777,7 +777,7 @@ export function holdCall(hold: boolean) {
 
 export function sendDtmf(tone: string) {
     if (!currentSession) return false;
-    
+
     try {
         if (currentSession.sessionDescriptionHandler) {
             currentSession.sessionDescriptionHandler.sendDtmf(tone);
@@ -813,37 +813,45 @@ export function debugAudioTracks() {
         console.log('No active call to debug');
         return { status: 'error', message: 'No active call' };
     }
-    
+
     try {
         console.log('🔍 Comprehensive audio debugging for current call...');
-        
+
         if (!currentSession.sessionDescriptionHandler) {
             console.error('❌ No sessionDescriptionHandler found in the session');
             return { status: 'error', message: 'No sessionDescriptionHandler found' };
         }
-        
+
         const sessionDescriptionHandler = currentSession.sessionDescriptionHandler as any;
         if (!sessionDescriptionHandler.peerConnection) {
             console.error('❌ No peerConnection found in sessionDescriptionHandler');
             return { status: 'error', message: 'No peerConnection found' };
         }
-        
+
         const pc = sessionDescriptionHandler.peerConnection;
-        
+
         // Log RTCPeerConnection state
         console.log(`🔍 RTCPeerConnection state: ${pc.connectionState}`);
         console.log(`🔍 ICE connection state: ${pc.iceConnectionState}`);
         console.log(`🔍 Signaling state: ${pc.signalingState}`);
-        
+
         // Check audio senders
         const senders = pc.getSenders();
         console.log(`🔍 Total RTP senders: ${senders.length}`);
-        
-        const trackInfo = [];
+
+        const trackInfo: Array<{
+            index: number;
+            kind?: string;
+            enabled?: boolean;
+            readyState?: string;
+            muted?: boolean;
+            fixed?: boolean;
+            noTrack?: boolean;
+        }> = [];
         let fixedTracks = 0;
         let hasAudioSender = false;
-        
-        senders.forEach((sender, index) => {
+
+        senders.forEach((sender: RTCRtpSender, index: number) => {
             if (sender.track) {
                 const info = {
                     index,
@@ -853,12 +861,12 @@ export function debugAudioTracks() {
                     muted: sender.track.muted,
                     fixed: false
                 };
-                
+
                 console.log(`🔍 Sender ${index} track kind: ${sender.track.kind}`);
                 console.log(`🔍 Sender ${index} track enabled: ${sender.track.enabled}`);
                 console.log(`🔍 Sender ${index} track readyState: ${sender.track.readyState}`);
                 console.log(`🔍 Sender ${index} track muted: ${sender.track.muted}`);
-                
+
                 // If it's an audio track, make sure it's enabled
                 if (sender.track.kind === 'audio') {
                     hasAudioSender = true;
@@ -869,21 +877,21 @@ export function debugAudioTracks() {
                         fixedTracks++;
                     }
                 }
-                
+
                 trackInfo.push(info);
             } else {
                 console.log(`🔍 Sender ${index} has no track`);
                 trackInfo.push({ index, noTrack: true });
             }
-            
+
             // Log sender parameters
             try {
                 const params = sender.getParameters();
                 console.log(`🔍 Sender ${index} parameters:`, params);
-                
+
                 // Check if sender has encodings and they're active
                 if (params.encodings) {
-                    params.encodings.forEach((encoding, i) => {
+                    params.encodings.forEach((encoding: RTCRtpEncodingParameters, i: number) => {
                         console.log(`🔍 Sender ${index} encoding ${i} active: ${encoding.active !== false}`);
                         if (encoding.active === false && sender.track && sender.track.kind === 'audio') {
                             console.log(`⚠️ Audio encoding is inactive, attempting to activate...`);
@@ -901,28 +909,28 @@ export function debugAudioTracks() {
                 console.log(`🔍 Could not get parameters for sender ${index}:`, e);
             }
         });
-        
+
         // Check SDP for audio direction
         let localSdp = '';
         let remoteSdp = '';
-        
+
         try {
             if (pc.localDescription && pc.localDescription.sdp) {
                 localSdp = pc.localDescription.sdp;
                 console.log(`🔍 Analyzing local SDP (${pc.localDescription.type})...`);
-                
+
                 // Parse SDP to check audio direction
                 const sdpLines = localSdp.split('\n');
                 let currentMedia = '';
                 let audioDirection = '';
-                
-                sdpLines.forEach(line => {
+
+                sdpLines.forEach((line: string) => {
                     // Track which media section we're in
                     if (line.startsWith('m=')) {
                         currentMedia = line.split(' ')[0].substring(2);
                         console.log(`🔍 SDP media section: ${line}`);
                     }
-                    
+
                     // Check for direction attributes in audio section
                     if (currentMedia === 'audio' &&
                         (line.includes('a=sendrecv') ||
@@ -933,30 +941,30 @@ export function debugAudioTracks() {
                         console.log(`🔍 Local audio direction: ${audioDirection}`);
                     }
                 });
-                
+
                 if (audioDirection !== 'a=sendrecv') {
                     console.error(`❌ Local audio direction is ${audioDirection}, not a=sendrecv as expected!`);
                 } else {
                     console.log('✅ Local audio direction is correctly set to sendrecv');
                 }
             }
-            
+
             if (pc.remoteDescription && pc.remoteDescription.sdp) {
                 remoteSdp = pc.remoteDescription.sdp;
                 console.log(`🔍 Analyzing remote SDP (${pc.remoteDescription.type})...`);
-                
+
                 // Parse SDP to check audio direction
                 const sdpLines = remoteSdp.split('\n');
                 let currentMedia = '';
                 let audioDirection = '';
-                
-                sdpLines.forEach(line => {
+
+                sdpLines.forEach((line: string) => {
                     // Track which media section we're in
                     if (line.startsWith('m=')) {
                         currentMedia = line.split(' ')[0].substring(2);
                         console.log(`🔍 SDP media section: ${line}`);
                     }
-                    
+
                     // Check for direction attributes in audio section
                     if (currentMedia === 'audio' &&
                         (line.includes('a=sendrecv') ||
@@ -967,7 +975,7 @@ export function debugAudioTracks() {
                         console.log(`🔍 Remote audio direction: ${audioDirection}`);
                     }
                 });
-                
+
                 if (audioDirection !== 'a=sendrecv') {
                     console.error(`❌ Remote audio direction is ${audioDirection}, not a=sendrecv as expected!`);
                 } else {
@@ -977,12 +985,12 @@ export function debugAudioTracks() {
         } catch (e) {
             console.error('❌ Error analyzing SDP:', e);
         }
-        
+
         // Check if there are any audio tracks
-        const audioSenders = senders.filter(sender => sender.track && sender.track.kind === 'audio');
+        const audioSenders = senders.filter((sender: RTCRtpSender) => sender.track && sender.track.kind === 'audio');
         if (audioSenders.length === 0) {
             console.error('❌ No audio tracks found in the RTCPeerConnection!');
-            
+
             // Provide troubleshooting suggestions
             console.log('\n🔧 TROUBLESHOOTING SUGGESTIONS:');
             console.log('1. Check if microphone permissions are granted in browser');
@@ -990,7 +998,7 @@ export function debugAudioTracks() {
             console.log('3. Try a different microphone if available');
             console.log('4. Restart the browser and try again');
             console.log('5. Check Asterisk/SIP server configuration (see below)');
-            
+
             return {
                 status: 'error',
                 message: 'No audio tracks found',
@@ -1002,7 +1010,7 @@ export function debugAudioTracks() {
                 remoteSdp: remoteSdp
             };
         }
-        
+
         // Provide Asterisk/SIP server configuration suggestions
         console.log('\n🔧 ASTERISK/SIP SERVER CONFIGURATION SUGGESTIONS:');
         console.log('If you can hear the other party but they cannot hear you, check:');
@@ -1016,7 +1024,7 @@ export function debugAudioTracks() {
         console.log('   - Check for any media filtering or transformation rules');
         console.log('   - Verify that the codec negotiation is working correctly');
         console.log('6. Try enabling STUN/TURN if not already enabled');
-        
+
         return {
             status: 'success',
             message: fixedTracks > 0 ? `Fixed ${fixedTracks} audio tracks` : 'All audio tracks are properly configured',
@@ -1035,17 +1043,17 @@ export function debugAudioTracks() {
         };
     } catch (error) {
         console.error('Error debugging audio tracks:', error);
-        return { status: 'error', message: `Error: ${error.message}` };
+        return { status: 'error', message: `Error: ${(error as Error).message}` };
     }
 }
 
 export function toggleVideo(enable: boolean) {
     if (!currentSession) return false;
-    
+
     try {
         if (currentSession.sessionDescriptionHandler) {
-            const pc = currentSession.sessionDescriptionHandler.peerConnection;
-            pc.getSenders().forEach((sender) => {
+            const pc = (currentSession.sessionDescriptionHandler as any).peerConnection;
+            pc.getSenders().forEach((sender: RTCRtpSender) => {
                 if (sender.track && sender.track.kind === 'video') {
                     sender.track.enabled = enable;
                 }
@@ -1060,36 +1068,36 @@ export function toggleVideo(enable: boolean) {
 
 export async function switchCamera() {
     if (!currentSession) return false;
-    
+
     try {
         if (currentSession.sessionDescriptionHandler) {
-            const pc = currentSession.sessionDescriptionHandler.peerConnection;
-            const videoSender = pc.getSenders().find(sender =>
+            const pc = (currentSession.sessionDescriptionHandler as any).peerConnection;
+            const videoSender = pc.getSenders().find((sender: RTCRtpSender) =>
                 sender.track && sender.track.kind === 'video'
             );
-            
+
             if (videoSender) {
                 // Get current facingMode
                 const currentTrack = videoSender.track;
                 const currentFacingMode = currentTrack?.getSettings().facingMode;
-                
+
                 // Toggle between 'user' (front) and 'environment' (back)
                 const newFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
-                
+
                 try {
                     const newStream = await navigator.mediaDevices.getUserMedia({
                         video: { facingMode: newFacingMode },
                         audio: false
                     });
-                    
+
                     const newTrack = newStream.getVideoTracks()[0];
                     await videoSender.replaceTrack(newTrack);
-                    
+
                     // Stop old track to release camera
                     if (currentTrack) {
                         currentTrack.stop();
                     }
-                    
+
                     return true;
                 } catch (error) {
                     console.error('Error switching camera:', error);
