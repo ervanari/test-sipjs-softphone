@@ -68,14 +68,16 @@ export default function VideoPanel({ localStream, remoteStream, onToggleVideo, o
       const hasVideoTracks = localStream.getVideoTracks().length > 0;
       console.log("Local stream has video tracks:", hasVideoTracks);
 
+      // Make sure video tracks are enabled
+      localStream.getVideoTracks().forEach(track => {
+        if (!track.enabled) {
+          console.log("Enabling disabled local video track");
+          track.enabled = true;
+        }
+      });
+
       // Set srcObject and ensure it's applied
       localVideoRef.current.srcObject = localStream;
-
-      // Force a repaint to ensure the video element updates
-      localVideoRef.current.style.display = 'none';
-      // This triggers a reflow
-      void localVideoRef.current.offsetHeight;
-      localVideoRef.current.style.display = 'block';
 
       // Ensure video plays when ready
       localVideoRef.current.onloadedmetadata = () => {
@@ -85,6 +87,10 @@ export default function VideoPanel({ localStream, remoteStream, onToggleVideo, o
             videoHeight: localVideoRef.current.videoHeight,
             readyState: localVideoRef.current.readyState
           });
+
+          // Make sure the video element is visible
+          localVideoRef.current.style.display = 'block';
+
           localVideoRef.current.play().catch(e => {
             console.error("Error playing local video:", e);
           });
@@ -94,6 +100,12 @@ export default function VideoPanel({ localStream, remoteStream, onToggleVideo, o
       // Add more event listeners for debugging
       localVideoRef.current.onloadeddata = () => {
         console.log("Local video data loaded");
+        // Try playing again when data is loaded
+        if (localVideoRef.current) {
+          localVideoRef.current.play().catch(e => {
+            console.log("Error playing local video on loadeddata:", e);
+          });
+        }
       };
 
       localVideoRef.current.oncanplay = () => {
@@ -136,14 +148,16 @@ export default function VideoPanel({ localStream, remoteStream, onToggleVideo, o
       const hasVideoTracks = remoteStream.getVideoTracks().length > 0;
       console.log("Remote stream has video tracks:", hasVideoTracks);
 
+      // Make sure video tracks are enabled
+      remoteStream.getVideoTracks().forEach(track => {
+        if (!track.enabled) {
+          console.log("Enabling disabled remote video track");
+          track.enabled = true;
+        }
+      });
+
       // Set srcObject and ensure it's applied
       remoteVideoRef.current.srcObject = remoteStream;
-
-      // Force a repaint to ensure the video element updates
-      remoteVideoRef.current.style.display = 'none';
-      // This triggers a reflow
-      void remoteVideoRef.current.offsetHeight;
-      remoteVideoRef.current.style.display = 'block';
 
       // Set volume
       remoteVideoRef.current.volume = volume;
@@ -156,6 +170,10 @@ export default function VideoPanel({ localStream, remoteStream, onToggleVideo, o
             videoHeight: remoteVideoRef.current.videoHeight,
             readyState: remoteVideoRef.current.readyState
           });
+
+          // Make sure the video element is visible
+          remoteVideoRef.current.style.display = 'block';
+
           remoteVideoRef.current.play().catch(e => {
             console.error("Error playing remote video:", e);
           });
@@ -165,6 +183,12 @@ export default function VideoPanel({ localStream, remoteStream, onToggleVideo, o
       // Add more event listeners for debugging
       remoteVideoRef.current.onloadeddata = () => {
         console.log("Remote video data loaded");
+        // Try playing again when data is loaded
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.play().catch(e => {
+            console.log("Error playing remote video on loadeddata:", e);
+          });
+        }
       };
 
       remoteVideoRef.current.oncanplay = () => {
@@ -241,43 +265,88 @@ export default function VideoPanel({ localStream, remoteStream, onToggleVideo, o
   useEffect(() => {
     const checkVideoPlayback = () => {
       // Check local video
-      if (localVideoRef.current && localStream && localStream.getVideoTracks().length > 0) {
+      if (localVideoRef.current && localStream) {
         const localVideo = localVideoRef.current;
+        const videoTracks = localStream.getVideoTracks();
 
-        // If video has valid dimensions but is paused, try to play it
-        if (localVideo.videoWidth > 0 && localVideo.videoHeight > 0 && localVideo.paused) {
-          console.log("Local video has dimensions but is paused, attempting to play again");
-          localVideo.play().catch(e => {
-            console.log("Error restarting local video:", e);
+        // Log video track status
+        if (videoTracks.length > 0) {
+          videoTracks.forEach((track, index) => {
+            console.log(`Local video track ${index}: enabled=${track.enabled}, muted=${track.muted}, readyState=${track.readyState}`);
+
+            // Ensure track is enabled
+            if (!track.enabled) {
+              console.log("Re-enabling disabled local video track");
+              track.enabled = true;
+            }
           });
-        }
 
-        // Log if video appears to be stuck
-        if (localVideo.readyState >= 3 && localVideo.paused) {
-          console.log("Local video is ready but paused");
+          // If video has valid dimensions but is paused, try to play it
+          if (localVideo.videoWidth > 0 && localVideo.videoHeight > 0 && localVideo.paused) {
+            console.log("Local video has dimensions but is paused, attempting to play again");
+            localVideo.play().catch(e => {
+              console.log("Error restarting local video:", e);
+            });
+          }
+
+          // Check if video element is visible
+          if (localVideo.style.display === 'none') {
+            console.log("Local video element is hidden, making it visible");
+            localVideo.style.display = 'block';
+          }
+
+          // Log if video appears to be stuck
+          if (localVideo.readyState >= 3 && localVideo.paused) {
+            console.log("Local video is ready but paused");
+          }
+        } else {
+          console.log("No video tracks in local stream");
         }
       }
 
       // Check remote video
-      if (remoteVideoRef.current && remoteStream && remoteStream.getVideoTracks().length > 0) {
+      if (remoteVideoRef.current && remoteStream) {
         const remoteVideo = remoteVideoRef.current;
+        const videoTracks = remoteStream.getVideoTracks();
 
-        // If video has valid dimensions but is paused, try to play it
-        if (remoteVideo.videoWidth > 0 && remoteVideo.videoHeight > 0 && remoteVideo.paused) {
-          console.log("Remote video has dimensions but is paused, attempting to play again");
-          remoteVideo.play().catch(e => {
-            console.log("Error restarting remote video:", e);
+        // Log video track status
+        if (videoTracks.length > 0) {
+          videoTracks.forEach((track, index) => {
+            console.log(`Remote video track ${index}: enabled=${track.enabled}, muted=${track.muted}, readyState=${track.readyState}`);
+
+            // Ensure track is enabled
+            if (!track.enabled) {
+              console.log("Re-enabling disabled remote video track");
+              track.enabled = true;
+            }
           });
-        }
 
-        // Log if video appears to be stuck
-        if (remoteVideo.readyState >= 3 && remoteVideo.paused) {
-          console.log("Remote video is ready but paused");
+          // If video has valid dimensions but is paused, try to play it
+          if (remoteVideo.videoWidth > 0 && remoteVideo.videoHeight > 0 && remoteVideo.paused) {
+            console.log("Remote video has dimensions but is paused, attempting to play again");
+            remoteVideo.play().catch(e => {
+              console.log("Error restarting remote video:", e);
+            });
+          }
+
+          // Check if video element is visible
+          if (remoteVideo.style.display === 'none') {
+            console.log("Remote video element is hidden, making it visible");
+            remoteVideo.style.display = 'block';
+          }
+
+          // Log if video appears to be stuck
+          if (remoteVideo.readyState >= 3 && remoteVideo.paused) {
+            console.log("Remote video is ready but paused");
+          }
+        } else {
+          console.log("No video tracks in remote stream");
         }
       }
     };
 
-    // Check every 2 seconds
+    // Run check immediately and then every 2 seconds
+    checkVideoPlayback();
     const intervalId = setInterval(checkVideoPlayback, 2000);
 
     return () => {
@@ -347,7 +416,8 @@ export default function VideoPanel({ localStream, remoteStream, onToggleVideo, o
             muted={false}
             controls={false}
             className="w-full h-full object-cover"
-            style={{ minHeight: '100%', minWidth: '100%' }}
+            style={{ minHeight: '100%', minWidth: '100%', display: 'block' }}
+            data-testid="remote-video"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
@@ -389,7 +459,8 @@ export default function VideoPanel({ localStream, remoteStream, onToggleVideo, o
             playsInline
             controls={false}
             className="w-full h-full object-cover"
-            style={{ minHeight: '100%', minWidth: '100%' }}
+            style={{ minHeight: '100%', minWidth: '100%', display: 'block' }}
+            data-testid="local-video"
           />
         ) : (
           <div className="w-full h-full bg-gray-800 flex items-center justify-center">
